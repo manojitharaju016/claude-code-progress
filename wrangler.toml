@@ -1,0 +1,39 @@
+# Cloudflare Worker + static assets config for the Work Progress site.
+#
+# Deploy path: connect this GitHub repo (main branch) in the Cloudflare dashboard
+# (Workers & Pages -> Create -> Workers -> connect to Git). No local Node needed.
+#
+# SECRETS (set in the dashboard: Worker -> Settings -> Variables and Secrets,
+# type = Secret — NOT here, never committed):
+#   GH_TOKEN       fine-grained GitHub token, this repo only, Contents: read+write
+#   SITE_PASSWORD  the shared password you type to open the site
+#
+# After changing GH_OWNER/GH_REPO/DATA_PREFIX/OVERLAY_BRANCH below, redeploy.
+
+name = "work-progress"
+main = "src/worker.js"
+compatibility_date = "2026-07-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# Run the Worker BEFORE serving any static file, so the password gate covers the
+# HTML/CSS/JS too — not just /api/*. This is the fix for the "static assets bypass
+# the gate" leak.
+run_worker_first = true
+
+[vars]
+# Set these to YOUR OWN GitHub username and the private repo you create in Setup
+# step 1 below — this Worker reads/writes THAT repo via the GitHub API.
+GH_OWNER = "YOUR_GITHUB_USERNAME"
+GH_REPO = "YOUR_REPO_NAME"
+# progress.json lives on DATA_BRANCH (the reader force-pushes a single rolling
+# commit here — zero history growth). overlay.json (your edits) lives on its own
+# OVERLAY_BRANCH, written only by this Worker — so the reader can never clobber
+# your renames and the Worker can never clobber progress. Neither branch is what
+# Cloudflare builds from (that's main), so data updates never trigger a rebuild.
+# Each machine pushes to its own branch data-<machine> (e.g. data-laptop,
+# data-desktop, data-server). The Worker discovers every branch with this prefix and merges
+# them into one view, so adding a machine needs no config change here.
+DATA_PREFIX = "data-"
+OVERLAY_BRANCH = "overlay"

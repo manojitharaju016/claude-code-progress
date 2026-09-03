@@ -1,0 +1,11 @@
+# machine-local state — never commit
+.token
+.machine
+.site_password
+datapush/
+run.log*
+cache.json
+.last_hash
+.lock
+.lock.d/
+__pycache__/

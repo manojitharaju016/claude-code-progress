@@ -1,0 +1,13 @@
+# Local-preview snapshot only — production data is served live by the Worker from
+# the `data`/`overlay` branches, never from a committed file on main.
+public/data.json
+
+# Defense in depth: these are machine-local secrets/state that belong under
+# ~/.claude/cc-progress/ (see agent/.gitignore), never inside a checkout of
+# this repo — ignored here too in case a checkout's layout ever puts them here.
+.token
+.machine
+.site_password
+run.log*
+cache.json
+.last_hash
