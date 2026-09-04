@@ -357,20 +357,33 @@ def save_cache(cache):
         pass
 
 
+def publish_excerpts():
+    return os.environ.get("CC_PROGRESS_PUBLISH_EXCERPTS", "").strip() in ("1", "true", "yes")
+
+
 def load_metrics_cache():
     """Metrics state lives in its own file so the to-do cache stays small and
-    is not rewritten with accumulator state after every turn."""
+    is not rewritten with accumulator state after every turn.
+
+    Turning the prompt excerpt on or off has to invalidate it. A settled file
+    keeps only its finished record, so without this the setting would apply to
+    sessions scanned from now on and silently skip the rest.
+    """
+    fresh = {"_version": metrics_scan.METRICS_CACHE_VERSION,
+             "_excerpts": publish_excerpts()}
     try:
         with open(METRICS_CACHE_FILE, "r") as fh:
             c = json.load(fh)
-        if c.get("_version") == metrics_scan.METRICS_CACHE_VERSION:
+        if (c.get("_version") == metrics_scan.METRICS_CACHE_VERSION
+                and bool(c.get("_excerpts")) == fresh["_excerpts"]):
             return c
     except (OSError, ValueError):
         pass
-    return {"_version": metrics_scan.METRICS_CACHE_VERSION}
+    return fresh
 
 
 def save_metrics_cache(cache):
+    cache["_excerpts"] = publish_excerpts()
     try:
         os.makedirs(os.path.dirname(METRICS_CACHE_FILE), exist_ok=True)
         tmp = METRICS_CACHE_FILE + ".tmp"
@@ -391,7 +404,7 @@ def build_metrics_tree(budget_secs, show_progress=False):
             if isinstance(acc, dict) and acc.get("cwd"):
                 cwds.add(acc["cwd"])
     denyset = build_secret_denyset(cwds)
-    publish = os.environ.get("CC_PROGRESS_PUBLISH_EXCERPTS", "").strip() in ("1", "true", "yes")
+    publish = publish_excerpts()
 
     def _progress(done, total, path):
         if show_progress:
