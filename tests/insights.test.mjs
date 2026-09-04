@@ -33,7 +33,7 @@ test("no multiple is quoted when the reference rate is too small to divide by", 
   assert.ok(better.rate < MIN_RATE_FOR_RATIO);
   assert.equal(c.canRatio, false);
   assert.equal(c.ratio, null);
-  assert.match(c.phrase, /per 10 messages$/, "an absolute gap, never an x");
+  assert.match(c.phrase, /more per 10 messages$/, "an absolute gap, never a multiple");
 });
 
 test("a multiple is quoted once the reference group has a real rate", () => {
@@ -41,7 +41,7 @@ test("a multiple is quoted once the reference group has a real rate", () => {
   const better = pooledRate(many(10, { interrupts: 1 }), hard, (s) => s.human_turns);
   const c = compare(worse, better);
   assert.equal(c.canRatio, true);
-  assert.equal(c.phrase, "4.0x");
+  assert.equal(c.phrase, "4.0 times");
 });
 
 test("a group below the minimum is never compared", () => {

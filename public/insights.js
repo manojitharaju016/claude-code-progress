@@ -70,8 +70,8 @@ export function compare(worse, better) {
     ratio: canRatio ? worse.rate / better.rate : null,
     // The phrase a headline should use, so no card has to decide this itself.
     phrase: canRatio
-      ? `${(worse.rate / better.rate).toFixed(1)}x`
-      : `${gap >= 0 ? "+" : ""}${gap.toFixed(1)} per 10 messages`,
+      ? `${(worse.rate / better.rate).toFixed(1)} times`
+      : `${gap >= 0 ? "" : "-"}${Math.abs(gap).toFixed(1)} more per 10 messages`,
     enough: worse.n >= MIN_N && better.n >= MIN_N,
   };
 }
@@ -159,21 +159,21 @@ export const RULES = [
       if (!c.enough || c.gap <= 0) return null;
       const buckets = [0, 1, 2, 3].map((k) => {
         const g = pool.filter((s) => anchors(s) === k);
-        return { label: `${k} signpost${k === 1 ? "" : "s"}`, ...pooledRate(g, hard, turns) };
+        return { label: `${k} of three`, ...pooledRate(g, hard, turns) };
       });
       const pctFew = (few.length / pool.length) * 100;
       return {
         headline: c.canRatio
-          ? `First messages with at most one signpost needed ${c.phrase} as many corrections`
-          : `First messages with at most one signpost needed ${c.phrase} more corrections`,
+          ? `First messages that named at most one of the file, the limit and the check needed ${c.phrase} as many corrections`
+          : `First messages that named at most one of the file, the limit and the check needed ${c.phrase} corrections`,
         chart: { kind: "bars", buckets, xTitle: "corrections per 10 messages",
                  highlight: buckets.findIndex((x) => x.n === Math.max(...buckets.map((y) => y.n))),
                  reference: pooledRate(pool, hard, turns).rate, referenceLabel: "your overall rate" },
-        wentWrong: `In ${pctFew.toFixed(0)}% of your sessions the first message had at most one of the three. Those needed ${a.rate.toFixed(1)} corrections for every 10 messages you sent; the ones with two or three needed ${b.rate.toFixed(1)}.`,
+        wentWrong: `Three things help most in a first message: where the code is, what must not change, and how to tell it worked. In ${pctFew.toFixed(0)}% of your sessions you named at most one of them. Those needed ${a.rate.toFixed(1)} corrections for every 10 messages you sent; the ones with two or three needed ${b.rate.toFixed(1)}.`,
         improve: "Say all three up front, even when the job feels obvious: where the code is, what must not change, and how you will both know it worked.",
         promptShape: "In <path>, <change>. Do not touch <area>. Done when `<command>` shows <result>.",
-        howToRead: "Sessions are grouped by how many of the three things the first message mentioned. The bar is how often you had to correct Claude in that group, per 10 messages you sent. The thin line through it is the range you would expect from this few events, so short bars with long lines are not really different. The dotted line is your average. Grey bars have fewer than five sessions behind them.",
-        confidence: `${few.length} sessions had one or none, ${many.length} had two or three. These three are spotted by pattern-matching your text, not by understanding it. ${CORRELATION}`,
+        howToRead: "Sessions are grouped by how many of those three the first message mentioned. The bar is how often you had to correct Claude in that group, per 10 messages you sent. The thin line through it is the range you would expect from this few events, so short bars with long lines are not really different. The dotted line is your average. Grey bars have fewer than five sessions behind them.",
+        confidence: `${few.length} sessions named one or none, ${many.length} named two or three. These three are spotted by pattern-matching your text, not by understanding it. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: few.length / Math.max(1, pool.length), n: pool.length,
       };

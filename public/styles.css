@@ -16,8 +16,8 @@
   --surface-2:   #fafafc;
   --nav:         rgba(255, 255, 255, 0.72);
   --text:        #1d1d1f;
-  --text-2:      #6e6e73;
-  --text-3:      #86868b;
+  --text-2:      #58585c;   /* 7.6:1 on the page */
+  --text-3:      #6e6e73;   /* 5.1:1 - the small print still has to be readable */
   --rule:        #d2d2d7;
   --rule-soft:   #e8e8ed;
   --accent:      #0066cc;
@@ -421,8 +421,9 @@ details.how p { font-size: 14px; color: var(--text-2); max-width: 66ch; margin: 
 .locked li { font-size: 14px; color: var(--text-3); list-style: none; }
 .locked .t { color: var(--text-2); }
 
-/* session table */
-.stable { width: 100%; border-collapse: collapse; font-size: 14px; }
+/* session table — wide content scrolls inside its own box, never the page */
+#m-table { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.stable { width: 100%; min-width: 720px; border-collapse: collapse; font-size: 14px; }
 .stable th {
   text-align: left; font-weight: 500; font-size: 13px; color: var(--text-2);
   padding: 8px 10px; border-bottom: 1px solid var(--rule); cursor: pointer;
@@ -485,7 +486,19 @@ details.how p { font-size: 14px; color: var(--text-2); max-width: 66ch; margin: 
   .report { font-size: 18px; }
   .filters { position: static; }
   .stable th { position: static; }
+  .chart-table { min-width: 0; }
   .mini-meter { width: 70px; }
+}
+
+/* The nav carries a title, a machine chip, the view switch, a timestamp and two
+   buttons. Below this width they cannot all fit, so the two that are repeated
+   elsewhere on the page step aside rather than pushing the page sideways. */
+@media (max-width: 620px) {
+  .topbar { gap: 10px; padding: 0 16px; }
+  .topbar h1 { font-size: 14px; }
+  .machine-chip { display: none; }
+  .status-line { display: none; }
+  .seg-btn { padding: 6px 9px; font-size: 13px; }
 }
 
 /* ------------------------------------------------- running now + machines */

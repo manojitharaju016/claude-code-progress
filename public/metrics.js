@@ -234,12 +234,12 @@ function renderGlance(sessions, judged) {
     figure(((steer / Math.max(1, turns)) * 10).toFixed(1), "messages sent mid-run",
            "you added something while Claude was still working"),
     figure(fmtTokens(tokens / Math.max(1, sessions.length)), "tokens a session",
-           "$" + (usd / Math.max(1, sessions.length)).toFixed(2) + " a session at published prices" +
+           "about $" + (usd / Math.max(1, sessions.length)).toFixed(2) + " each at published prices" +
            (unpriced ? " (" + unpriced + " calls unpriced)" : "")),
     figure(String(resets), "conversations re-sent",
            "Claude's saved copy expired and everything went again"),
     figure(String(judged), "sessions reviewed",
-           judged ? "reviewed, so the rest of the findings can appear" : "run /judge-sessions to unlock the rest"),
+           judged ? "read through in detail, which unlocks more findings" : "run /judge-sessions to unlock more findings"),
   );
   [...g.children].forEach(markReveal);
 }
