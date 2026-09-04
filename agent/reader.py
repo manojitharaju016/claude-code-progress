@@ -97,10 +97,18 @@ def build_secret_denyset(cwds):
 
     Values are kept in memory only and used to scrub published text. The .env
     files themselves are never copied out.
+
+    Directories you keep credentials in but rarely open a session in would
+    otherwise be missed, so CC_PROGRESS_EXTRA_ENV_DIRS takes a colon-separated
+    list of extra places to read a .env from.
     """
     values = set()
     checked = set()
     candidates = set(cwds)
+    for extra in (os.environ.get("CC_PROGRESS_EXTRA_ENV_DIRS") or "").split(":"):
+        extra = extra.strip()
+        if extra:
+            candidates.add(os.path.expanduser(extra))
     for cwd in candidates:
         if not cwd or cwd in checked:
             continue

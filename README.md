@@ -101,6 +101,7 @@ Put these in `~/.claude/cc-progress/config.env` on any machine.
 | `CC_PROGRESS_METRICS_BUDGET_SECS` | `20` | How long the reader may spend on new transcripts per turn. Anything it does not reach is picked up next time. |
 | `CC_PROGRESS_HEARTBEAT_SECS` | `600` | Push even when nothing changed, so the page does not look stale. |
 | `CC_PROGRESS_CLAUDE_DIR` | `~/.claude` | Where your Claude Code data lives. |
+| `CC_PROGRESS_EXTRA_ENV_DIRS` | none | Extra directories, separated by `:`, whose `.env` values should also be scrubbed out of anything published. Useful for a credentials folder you rarely open a session in. |
 
 To upgrade a machine later, pull and run setup again, then scan your history
 once so older sessions get their numbers:
