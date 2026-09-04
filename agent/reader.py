@@ -21,6 +21,8 @@ Usage:
     python3 reader.py --out progress.json      # write compiled tree
     python3 reader.py --summary                # human-readable summary to stdout
     python3 reader.py --out progress.json --summary
+    python3 reader.py --out progress.json --metrics-out metrics.json
+    python3 reader.py --backfill              # one-off full metrics scan, with progress
 """
 
 import argparse
@@ -34,6 +36,8 @@ import subprocess
 import sys
 from datetime import datetime, timezone
 
+import metrics_scan
+
 HOME = os.path.expanduser("~")
 # Override if your Claude Code config lives somewhere other than ~/.claude.
 CLAUDE_DIR = os.environ.get("CC_PROGRESS_CLAUDE_DIR") or os.path.join(HOME, ".claude")
@@ -41,6 +45,7 @@ PROJECTS_DIR = os.path.join(CLAUDE_DIR, "projects")
 SESSIONS_DIR = os.path.join(CLAUDE_DIR, "sessions")
 CC_DIR = os.path.join(CLAUDE_DIR, "cc-progress")
 CACHE_FILE = os.path.join(CC_DIR, "cache.json")
+METRICS_CACHE_FILE = os.path.join(CC_DIR, "metrics_cache.json")
 MACHINE_FILE = os.path.join(CC_DIR, ".machine")
 
 
@@ -62,6 +67,9 @@ def _machine_name():
 
 MACHINE = _machine_name()
 SCHEMA_VERSION = 1
+# Bumped whenever the published metrics record changes shape, so the site can
+# tell an old machine's feed from a new one instead of merging them blindly.
+READER_VERSION = "2.0.0"
 
 REVERSE_WINDOW = 8 * 1024 * 1024   # read at most the last 8 MB of a log
 CACHE_VERSION = 4                   # bump: added run_started_ts + earliest-first_ts fix
@@ -349,6 +357,61 @@ def save_cache(cache):
         pass
 
 
+def load_metrics_cache():
+    """Metrics state lives in its own file so the to-do cache stays small and
+    is not rewritten with accumulator state after every turn."""
+    try:
+        with open(METRICS_CACHE_FILE, "r") as fh:
+            c = json.load(fh)
+        if c.get("_version") == metrics_scan.METRICS_CACHE_VERSION:
+            return c
+    except (OSError, ValueError):
+        pass
+    return {"_version": metrics_scan.METRICS_CACHE_VERSION}
+
+
+def save_metrics_cache(cache):
+    try:
+        os.makedirs(os.path.dirname(METRICS_CACHE_FILE), exist_ok=True)
+        tmp = METRICS_CACHE_FILE + ".tmp"
+        with open(tmp, "w") as fh:
+            json.dump(cache, fh)
+        os.replace(tmp, METRICS_CACHE_FILE)
+    except OSError:
+        pass
+
+
+def build_metrics_tree(budget_secs, show_progress=False):
+    """Compile the prompting-metrics feed. Returns (tree, stats)."""
+    cache = load_metrics_cache()
+    cwds = set()
+    for entry in cache.values():
+        if isinstance(entry, dict):
+            acc = entry.get("acc") or entry.get("final") or {}
+            if isinstance(acc, dict) and acc.get("cwd"):
+                cwds.add(acc["cwd"])
+    denyset = build_secret_denyset(cwds)
+    publish = os.environ.get("CC_PROGRESS_PUBLISH_EXCERPTS", "").strip() in ("1", "true", "yes")
+
+    def _progress(done, total, path):
+        if show_progress:
+            pct = 100.0 * done / total if total else 100.0
+            sys.stderr.write("\r  scanning %d of %d files (%.0f%%)      " % (done, total, pct))
+            sys.stderr.flush()
+
+    tree, stats = metrics_scan.build_metrics(
+        PROJECTS_DIR, cache, MACHINE, READER_VERSION,
+        scrub=lambda t: scrub(t, denyset),
+        publish_excerpt=publish,
+        budget_secs=budget_secs,
+        progress=_progress if show_progress else None,
+    )
+    if show_progress:
+        sys.stderr.write("\n")
+    save_metrics_cache(cache)
+    return tree, stats
+
+
 # --- compile ----------------------------------------------------------------
 
 _ROOT_CACHE = {}
@@ -582,12 +645,38 @@ def main(argv=None):
     ap.add_argument("--out", help="write compiled progress.json to this path")
     ap.add_argument("--summary", action="store_true", help="print human summary")
     ap.add_argument("--no-cache", action="store_true", help="ignore/skip the cache")
+    ap.add_argument("--metrics-out", help="write the prompting-metrics feed to this path")
+    ap.add_argument("--metrics-budget", type=float, default=None,
+                    help="seconds to spend scanning transcripts for metrics (default 20; "
+                         "unscanned files are picked up on the next run)")
+    ap.add_argument("--backfill", action="store_true",
+                    help="scan every transcript for metrics with no time budget, printing "
+                         "progress. Run this once by hand after upgrading; the hook path "
+                         "stays budgeted so a turn is never held up.")
     args = ap.parse_args(argv)
+
+    if args.backfill and not args.metrics_out:
+        args.metrics_out = os.path.join(CC_DIR, "datapush", "data", "metrics.json")
 
     cache = {"_version": CACHE_VERSION} if args.no_cache else load_cache()
     tree = build(cache)
     if not args.no_cache:
         save_cache(cache)
+
+    if args.metrics_out:
+        budget = 0 if args.backfill else (
+            args.metrics_budget if args.metrics_budget is not None
+            else float(os.environ.get("CC_PROGRESS_METRICS_BUDGET_SECS", "20")))
+        mtree, mstats = build_metrics_tree(budget, show_progress=args.backfill)
+        tmp = args.metrics_out + ".tmp"
+        os.makedirs(os.path.dirname(os.path.abspath(args.metrics_out)), exist_ok=True)
+        with open(tmp, "w") as fh:
+            json.dump(mtree, fh, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, args.metrics_out)
+        sys.stderr.write(
+            "wrote %s  (%d sessions, scanned %d, deferred %d, %.1fs)\n" % (
+                args.metrics_out, mstats["sessions"], mstats["scanned"],
+                mstats["skipped"], mstats["secs"]))
 
     if args.out:
         tmp = args.out + ".tmp"
