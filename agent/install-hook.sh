@@ -3,7 +3,34 @@
 # cc-progress reader after every Claude Code turn. Any Stop hooks you already have
 # are preserved. A timestamped backup of settings.json is written first.
 # Re-running is safe (it won't add a duplicate).
-set -euo pipefail
+set -eu
+
+if [ "${1:-}" = "--uninstall" ]; then
+  SETTINGS="${CC_PROGRESS_CLAUDE_DIR:-$HOME/.claude}/settings.json"
+  [ -f "$SETTINGS" ] || { echo "no settings file at $SETTINGS; nothing to remove"; exit 0; }
+  cp "$SETTINGS" "$SETTINGS.bak"
+  "$(command -v python3 || echo /usr/bin/python3)" - "$SETTINGS" <<'PY'
+import json, sys
+path = sys.argv[1]
+cfg = json.load(open(path))
+groups = cfg.get("hooks", {}).get("Stop", [])
+kept, removed = [], 0
+for g in groups:
+    hooks = [h for h in g.get("hooks", []) if "cc-progress" not in str(h.get("command", ""))]
+    removed += len(g.get("hooks", [])) - len(hooks)
+    if hooks:
+        g["hooks"] = hooks
+        kept.append(g)
+if groups:
+    cfg["hooks"]["Stop"] = kept
+json.dump(cfg, open(path, "w"), indent=2)
+print("removed %d hook(s)" % removed)
+PY
+  echo "Done. A .bak of your settings was saved next to it."
+  exit 0
+fi
+
+set -eu -o pipefail
 SETTINGS="$HOME/.claude/settings.json"
 LAUNCH="$HOME/.claude/cc-progress/hook-launch.sh"
 PY="$(command -v python3 || echo /usr/bin/python3)"

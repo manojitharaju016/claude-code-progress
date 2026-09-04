@@ -33,6 +33,7 @@ export default {
     const url = new URL(request.url);
     try {
       if (url.pathname === "/api/data") return await handleData(request, env);
+      if (url.pathname === "/api/metrics") return await handleMetrics(request, env);
       if (url.pathname === "/api/save") return await handleSave(request, env);
     } catch (err) {
       return json({ error: String(err && err.message || err) }, 500);
@@ -98,6 +99,96 @@ async function handleData(request, env) {
   applyOverlay(tree, overlay || {});
   scrubTree(tree);
   return json(tree, 200, { "Cache-Control": "no-store" });
+}
+
+// The prompting feed. A machine that has not been upgraded yet simply has no
+// metrics.json on its branch: it is left out rather than failing the request,
+// so one stale machine cannot take the view down.
+const METRICS_PATH = "data/metrics.json";
+const METRICS_SCHEMA_MAJOR = 1;
+
+async function handleMetrics(request, env) {
+  let branches;
+  try {
+    branches = await listMachineBranches(env);
+  } catch (err) {
+    return json({ error: "github-unavailable", detail: String((err && err.message) || err) }, 503);
+  }
+  const feeds = await Promise.all(branches.map((b) =>
+    ghGetJson(env, METRICS_PATH, b).catch(() => null)
+  ));
+  const merged = mergeMetrics(feeds.filter(Boolean));
+  scrubMetrics(merged);
+
+  // The feed only changes when a machine pushes, so a browser that already has
+  // this exact set of machine generations can be told to keep what it has.
+  const etag = '"m' + METRICS_SCHEMA_MAJOR + "-" +
+    merged.machines.map((m) => m.name + ":" + (m.generated_utc || "")).join("|") + '"';
+  if (request.headers.get("If-None-Match") === etag) {
+    return new Response(null, { status: 304, headers: { ETag: etag, "Cache-Control": "no-store" } });
+  }
+  return json(merged, 200, { "Cache-Control": "no-store", ETag: etag });
+}
+
+function mergeMetrics(feeds) {
+  const out = {
+    generated_utc: null, machines: [], skipped: [], sessions: [],
+    judged: 0, judge_tokens: 0, coach: null, lifetime: { sessions: 0, by_model: {} },
+  };
+  for (const f of feeds) {
+    if (!f || typeof f !== "object") continue;
+    const name = f.machine || "unknown";
+    // A feed from a reader we do not understand is named, not merged: silently
+    // dropping it would read as "that machine has done no work".
+    if (Math.floor(Number(f.schema_version) || 0) !== METRICS_SCHEMA_MAJOR) {
+      out.skipped.push({ name, schema_version: f.schema_version || null,
+                         reader_version: f.reader_version || null });
+      continue;
+    }
+    out.machines.push({
+      name,
+      reader_version: f.reader_version || null,
+      generated_utc: f.generated_utc || null,
+      excerpts_published: !!f.excerpts_published,
+      window_days: f.window_days || null,
+    });
+    if (!out.generated_utc || (f.generated_utc || "") > out.generated_utc) {
+      out.generated_utc = f.generated_utc || out.generated_utc;
+    }
+    for (const s of f.sessions || []) {
+      s.machine = name;
+      out.sessions.push(s);
+    }
+    out.judged += Number(f.judged) || 0;
+    out.judge_tokens += Number(f.judge_tokens) || 0;
+    if (f.coach && (!out.coach || (f.coach.date || "") > (out.coach.date || ""))) {
+      out.coach = f.coach;
+      out.coach.machine = name;
+    }
+    const lt = f.lifetime || {};
+    out.lifetime.sessions += Number(lt.sessions) || 0;
+    for (const [model, b] of Object.entries(lt.by_model || {})) {
+      const dst = out.lifetime.by_model[model] || (out.lifetime.by_model[model] = {});
+      for (const [k, v] of Object.entries(b)) dst[k] = (dst[k] || 0) + (Number(v) || 0);
+    }
+  }
+  out.sessions.sort((a, b) => String(b.latest_ts || "").localeCompare(String(a.latest_ts || "")));
+  return out;
+}
+
+// Only the two fields that can hold free text are re-scrubbed. Walking every
+// string of a 200-session feed would spend the Worker's CPU budget on numbers
+// that cannot contain a secret.
+function scrubMetrics(tree) {
+  for (const s of tree.sessions || []) {
+    if (typeof s.fp_excerpt === "string") s.fp_excerpt = scrub(s.fp_excerpt);
+    if (s.j && typeof s.j.summary === "string") s.j.summary = scrub(s.j.summary);
+  }
+  for (const n of (tree.coach && tree.coach.notes) || []) {
+    if (typeof n.pattern === "string") n.pattern = scrub(n.pattern);
+    if (typeof n.advice === "string") n.advice = scrub(n.advice);
+    if (typeof n.prompt_shape === "string") n.prompt_shape = scrub(n.prompt_shape);
+  }
 }
 
 // Never let Cloudflare's edge (or GitHub's CDN) hand us a cached copy: unique
@@ -320,4 +411,4 @@ function json(obj, status, extra) {
 async function safeText(res) { try { return (await res.text()).slice(0, 200); } catch (_) { return ""; } }
 
 // Named exports for unit testing (Cloudflare uses the default export above).
-export { applyOverlay, scrub, scrubTree, utf8ToB64, b64ToUtf8, timingSafeEqual, emptyTree, mergeFeeds };
+export { applyOverlay, scrub, scrubTree, utf8ToB64, b64ToUtf8, timingSafeEqual, emptyTree, mergeFeeds, mergeMetrics, scrubMetrics };

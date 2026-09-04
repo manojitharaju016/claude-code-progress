@@ -3,81 +3,141 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="color-scheme" content="dark light" />
-  <title>Claude Code — Mission Control</title>
+  <meta name="color-scheme" content="light dark" />
+  <title>Work Progress</title>
+  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
-  <header class="topbar">
+  <header class="topbar" id="topbar">
     <div class="topbar-left">
       <span class="logo-dot" aria-hidden="true"></span>
       <h1>Work Progress</h1>
-      <span class="machine-chip" id="machine-chip" title="Machine reporting data">—</span>
+      <span class="machine-chip" id="machine-chip" title="Machines reporting data">&mdash;</span>
     </div>
+
+    <nav class="seg" id="view-switch" role="tablist" aria-label="View">
+      <button class="seg-btn" role="tab" data-view="progress" aria-selected="true">Progress</button>
+      <button class="seg-btn" role="tab" data-view="prompting" aria-selected="false">Prompting</button>
+      <span class="seg-thumb" aria-hidden="true"></span>
+    </nav>
+
     <div class="topbar-right">
-      <span id="status-line" class="status-line" title="When the data was last generated">…</span>
-      <button id="refresh-btn" class="icon-btn" title="Refresh now" aria-label="Refresh now">↻</button>
-      <button id="theme-btn" class="icon-btn" title="Toggle light/dark" aria-label="Toggle light/dark">◐</button>
+      <span id="status-line" class="status-line" title="When this data was generated">&hellip;</span>
+      <button id="refresh-btn" class="icon-btn" title="Refresh now" aria-label="Refresh now">&#8635;</button>
+      <button id="theme-btn" class="icon-btn" title="Light, dark or system" aria-label="Switch theme">&#9680;</button>
     </div>
   </header>
 
-  <!-- top strip: overall + stat tiles -->
-  <section class="strip" aria-label="Overview">
-    <div class="panel hero-panel">
-      <div class="hero-figure" id="hero-pct">—</div>
-      <div class="hero-caption">overall progress</div>
-      <div class="hero-sub" id="hero-sub">&nbsp;</div>
-      <div class="meter meter-lg"><div id="hero-fill" class="meter-fill"></div></div>
-    </div>
-    <div class="tiles">
-      <div class="panel tile"><span class="tile-value" id="kpi-live">—</span><span class="tile-label">running now</span></div>
-      <div class="panel tile"><span class="tile-value" id="kpi-projects">—</span><span class="tile-label">projects</span></div>
-      <div class="panel tile"><span class="tile-value" id="kpi-stages">—</span><span class="tile-label">stages</span></div>
-      <div class="panel tile"><span class="tile-value" id="kpi-machines">—</span><span class="tile-label">machines</span></div>
-    </div>
-  </section>
-
-  <!-- LIVE NOW: every running session, one card each -->
-  <section class="live-section" id="live-section" aria-label="Running now">
-    <div class="section-head live-head">
-      <span class="pulse" aria-hidden="true"></span>
-      <span class="sh-label">Running now</span>
-      <span class="sh-count" id="live-count">0</span>
-    </div>
-    <div class="live-grid" id="live-grid"></div>
-  </section>
-
-  <!-- machine switcher: All / each machine -->
-  <nav id="machine-switcher" class="machine-switcher" aria-label="Switch machine"></nav>
-
-  <div class="workspace">
-    <!-- left rail: search, filters, tools -->
-    <aside class="rail" aria-label="Filters">
-      <input id="search" class="search" type="search" placeholder="Search…" autocomplete="off" />
-      <nav class="tabs" id="tabs">
-        <button class="tab active" data-filter="all">All <span class="count" id="cnt-all"></span></button>
-        <button class="tab" data-filter="live">● Live <span class="count" id="cnt-live"></span></button>
-        <button class="tab" data-filter="doing">◐ In progress <span class="count" id="cnt-doing"></span></button>
-        <button class="tab" data-filter="done">✓ Done <span class="count" id="cnt-done"></span></button>
-        <button class="tab" data-filter="hidden">⊘ Hidden <span class="count" id="cnt-hidden"></span></button>
-      </nav>
-      <div class="rail-tools">
-        <button id="expand-all" class="tool-btn" title="Expand everything">⊞ Expand all</button>
-        <button id="collapse-all" class="tool-btn" title="Collapse everything">⊟ Collapse all</button>
+  <!-- ------------------------------------------------------- progress -->
+  <div id="view-progress" class="view">
+    <section class="page hero" aria-label="Overall progress">
+      <div class="hero-eyebrow">overall progress</div>
+      <h2 class="hero-title" id="hero-pct">&mdash;</h2>
+      <div class="hero-proj" id="hero-sub">&nbsp;</div>
+      <div class="hero-meter">
+        <div class="meter meter-lg"><div id="hero-fill" class="meter-fill"></div></div>
       </div>
-      <div class="rail-foot">
-        <span>edits private to you</span>
-        <span>auto-refresh 20s</span>
-      </div>
-    </aside>
+    </section>
 
-    <!-- project panels -->
-    <main id="panels" class="panels" aria-label="Projects"></main>
+    <section class="page glance" aria-label="At a glance">
+      <div class="figure"><div class="figure-value accent" id="kpi-live">&mdash;</div>
+        <div class="figure-label">running now</div><div class="figure-note">sessions with a live Claude</div></div>
+      <div class="figure"><div class="figure-value" id="kpi-projects">&mdash;</div>
+        <div class="figure-label">projects</div><div class="figure-note">folders with recorded work</div></div>
+      <div class="figure"><div class="figure-value" id="kpi-stages">&mdash;</div>
+        <div class="figure-label">sessions</div><div class="figure-note">to-do lists tracked</div></div>
+      <div class="figure"><div class="figure-value" id="kpi-machines">&mdash;</div>
+        <div class="figure-label">machines</div><div class="figure-note">reporting to this page</div></div>
+    </section>
+
+    <section class="page section live-section" id="live-section" aria-label="Running now">
+      <div class="section-head live-head">
+        <span class="pulse" aria-hidden="true"></span>
+        <span class="sh-label">Running now</span>
+        <span class="sh-count" id="live-count">0</span>
+      </div>
+      <div class="live-grid" id="live-grid"></div>
+    </section>
+
+    <nav id="machine-switcher" class="page machine-switcher" aria-label="Switch machine"></nav>
+
+    <section class="page section workspace">
+      <aside class="rail" aria-label="Filters">
+        <input id="search" class="search" type="search" placeholder="Search" autocomplete="off" />
+        <nav class="tabs" id="tabs">
+          <button class="tab active" data-filter="all">All <span class="count" id="cnt-all"></span></button>
+          <button class="tab" data-filter="live">Live <span class="count" id="cnt-live"></span></button>
+          <button class="tab" data-filter="doing">In progress <span class="count" id="cnt-doing"></span></button>
+          <button class="tab" data-filter="done">Done <span class="count" id="cnt-done"></span></button>
+          <button class="tab" data-filter="hidden">Hidden <span class="count" id="cnt-hidden"></span></button>
+        </nav>
+        <div class="rail-tools">
+          <button id="expand-all" class="tool-btn" title="Expand everything">Expand all</button>
+          <button id="collapse-all" class="tool-btn" title="Collapse everything">Collapse all</button>
+        </div>
+        <div class="rail-foot">
+          <span>Renames stay on this site</span>
+          <span>Refreshes every 20 seconds</span>
+        </div>
+      </aside>
+      <main id="panels" class="panels" aria-label="Projects"></main>
+    </section>
+
+    <div id="empty" class="empty" hidden><p>Nothing matches. Clear the search, or switch to <b>All</b>.</p></div>
+    <div id="error" class="error" hidden></div>
   </div>
 
-  <div id="empty" class="empty" hidden><p>Nothing matches. Clear the search or switch to the <b>All</b> tab.</p></div>
-  <div id="error" class="error" hidden></div>
+  <!-- ------------------------------------------------------ prompting -->
+  <div id="view-prompting" class="view" hidden>
+    <section class="page">
+      <p class="report" id="report"><span class="lead">Reading your sessions&hellip;</span></p>
 
-  <script src="./app.js" defer></script>
+      <div class="filters" id="m-filters" role="group" aria-label="Filter the findings">
+        <span class="lbl">Period</span>
+        <div class="chips" id="m-period"></div>
+        <span class="lbl">Machine</span>
+        <div class="chips" id="m-machines"></div>
+        <div class="chips" id="m-extra"></div>
+        <span class="showing-tag" id="m-drill" hidden></span>
+        <button class="showing-clear" id="m-drill-clear" hidden>Clear</button>
+      </div>
+
+      <div class="glance" id="m-glance" style="border-top:none;padding-top:24px"></div>
+    </section>
+
+    <section class="page section">
+      <h2 class="section-title">What to change</h2>
+      <p class="section-sub">What your own sessions show, strongest first. Each one says what happened, what to try instead, and how much to trust it.</p>
+      <div class="insights" id="m-insights"></div>
+      <div class="card" id="m-locked-card" style="margin-top:16px" hidden>
+        <div class="insight-rank">Waiting for more sessions</div>
+        <ul class="locked" id="m-locked"></ul>
+      </div>
+    </section>
+
+    <section class="page section">
+      <h2 class="section-title">Context and compaction</h2>
+      <p class="section-sub">Whether you run out of room too often, leave it too late, or lose things when the conversation is trimmed.</p>
+      <div id="m-compaction"></div>
+    </section>
+
+    <section class="page section">
+      <h2 class="section-title">Where the tokens went</h2>
+      <p class="section-sub">What each session would have cost per token, so you can compare them. Your subscription pays none of it.</p>
+      <div id="m-tokens"></div>
+    </section>
+
+    <section class="page section">
+      <h2 class="section-title">Sessions</h2>
+      <p class="section-sub">Click any row to see what happened in that session and how full its context got.</p>
+      <div id="m-table"></div>
+    </section>
+
+    <div id="m-error" class="error" hidden></div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./app.js" type="module" defer></script>
 </body>
 </html>

@@ -11,3 +11,9 @@ public/data.json
 run.log*
 cache.json
 .last_hash
+
+# local preview data — real sessions, never committed
+public/metrics.json
+public/data.json
+.playwright-mcp/
+*.png
