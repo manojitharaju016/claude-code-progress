@@ -40,18 +40,33 @@ fi
   fi
   mkdir -p "$DATAPUSH/data"
 
-  if ! "$PY" "$ROOT/reader.py" --out "$OUT" 2>>"$LOG"; then
+  # Optional per-machine settings (CC_PROGRESS_PUBLISH_EXCERPTS, budgets...).
+  # Kept out of git: it is machine-local policy, not shared configuration.
+  if [ -f "$ROOT/config.env" ]; then
+    # shellcheck disable=SC1090
+    . "$ROOT/config.env"
+  fi
+
+  METRICS_OUT="$DATAPUSH/data/metrics.json"
+  if ! "$PY" "$ROOT/reader.py" --out "$OUT" --metrics-out "$METRICS_OUT" 2>>"$LOG"; then
     echo "reader failed"
     exit 0
   fi
 
   # meaningful-change check: hash the tree WITHOUT the generated_utc timestamp,
   # so a no-op turn does not cause a needless push.
-  NEWHASH="$("$PY" - "$OUT" <<'PYHASH'
+  NEWHASH="$("$PY" - "$OUT" "$METRICS_OUT" <<'PYHASH'
 import json,hashlib,sys
-d=json.load(open(sys.argv[1]))
-d.pop("generated_utc",None)
-print(hashlib.sha1(json.dumps(d,sort_keys=True,ensure_ascii=False).encode("utf-8")).hexdigest())
+h = hashlib.sha1()
+for path in sys.argv[1:]:
+    try:
+        d = json.load(open(path))
+    except (OSError, ValueError):
+        continue
+    # Drop the fields that move on every run, so an idle turn is not a change.
+    d.pop("generated_utc", None)
+    h.update(json.dumps(d, sort_keys=True, ensure_ascii=False).encode("utf-8"))
+print(h.hexdigest())
 PYHASH
 )"
   OLDHASH="$(cat "$HASHFILE" 2>/dev/null || echo none)"
@@ -71,7 +86,7 @@ PYHASH
   fi
 
   cd "$DATAPUSH" || exit 0
-  git add data/progress.json 2>>"$LOG"
+  git add data/progress.json data/metrics.json 2>>"$LOG"
   # single rolling commit: amend if one exists, else create.
   if git rev-parse --verify HEAD >/dev/null 2>&1; then
     git commit --amend --no-edit -q 2>>"$LOG" || true

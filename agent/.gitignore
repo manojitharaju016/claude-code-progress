@@ -9,3 +9,6 @@ cache.json
 .lock
 .lock.d/
 __pycache__/
+metrics_cache.json
+judge/
+config.env
