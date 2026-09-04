@@ -61,8 +61,10 @@ the bytes added since the last run are parsed.
 4. **Install on each machine:**
 
    ```bash
-   git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO ~/cc-progress-src
-   cd ~/cc-progress-src/agent
+   mkdir -p ~/.claude/cc-progress
+   git clone https://github.com/YOUR_GITHUB_USERNAME/YOUR_REPO ~/.claude/cc-progress/repo
+   cd ~/.claude/cc-progress/repo/agent
+   # put your fine-grained GitHub token in ~/.claude/cc-progress/.token first
    ./setup.sh              # copies the scripts, sets the machine name, first push
    ./install-hook.sh       # runs the reader after every Claude Code turn
    ./install-skill.sh      # adds /judge-sessions
@@ -100,9 +102,12 @@ Put these in `~/.claude/cc-progress/config.env` on any machine.
 | `CC_PROGRESS_HEARTBEAT_SECS` | `600` | Push even when nothing changed, so the page does not look stale. |
 | `CC_PROGRESS_CLAUDE_DIR` | `~/.claude` | Where your Claude Code data lives. |
 
-After upgrading, run the one-off scan of your history:
+To upgrade a machine later, pull and run setup again, then scan your history
+once so older sessions get their numbers:
 
 ```bash
+git -C ~/.claude/cc-progress/repo pull
+~/.claude/cc-progress/repo/agent/setup.sh
 python3 ~/.claude/cc-progress/reader.py --backfill
 ```
 

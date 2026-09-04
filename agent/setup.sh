@@ -49,6 +49,23 @@ TOKEN="$(tr -d ' \n\r\t' < "$TOKENFILE")"
 [ -n "$MACHINE" ] || die "Could not determine a machine label; set CC_PROGRESS_MACHINE=<name>."
 printf '%s' "$MACHINE" > "$ROOT/.machine"
 
+# Install (or refresh) the machine-side scripts from wherever this script is
+# being run. Doing it here means an upgrade is one command: pull, run setup.
+HERE="$(cd "$(dirname "$0")" && pwd)"
+mkdir -p "$ROOT"
+for f in reader.py metrics.py metrics_scan.py judge.py run.sh hook-launch.sh \
+         install-hook.sh install-skill.sh install-machine.sh server.py; do
+  if [ -f "$HERE/$f" ] && [ "$HERE/$f" != "$ROOT/$f" ]; then
+    cp "$HERE/$f" "$ROOT/$f"
+  fi
+done
+if [ -d "$HERE/skills" ] && [ "$HERE/skills" != "$ROOT/skills" ]; then
+  mkdir -p "$ROOT/skills"
+  cp -R "$HERE/skills/." "$ROOT/skills/"
+fi
+chmod +x "$ROOT"/*.sh "$ROOT"/*.py 2>/dev/null || true
+say "Installed the reader, the metrics scanner and the reviewer into $ROOT"
+
 # credential helper that feeds the fine-grained token from .token (keeps the
 # token OUT of any .git/config URL). The path is %q-escaped before splicing into
 # the helper's own embedded shell command, so this still works if $HOME contains
