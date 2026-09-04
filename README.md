@@ -233,6 +233,10 @@ Read this before publishing anything.
   usually contains your OS username and may reveal a client, employer or
   project name. If that matters on a given machine, do not install the agent
   there, or use local-only mode instead.
+- **The machine label is published too.** It defaults to the short hostname,
+  which often embeds a person's name (for example `alices-macbook`). Pass
+  `CC_PROGRESS_MACHINE=<neutral-name>` to `setup.sh` or `install-machine.sh`
+  to choose the label yourself.
 - **Secret scrubbing is best-effort.** Known key formats (Anthropic, OpenAI,
   GitHub, AWS, Google) are redacted, and any value of 16 or more characters
   found in a `.env` file in a project directory is removed from published text.
