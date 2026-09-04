@@ -179,14 +179,17 @@ test("information loss is only claimed on enough repeated turns", () => {
 });
 
 test("a zero baseline alone cannot make a verdict lossy", () => {
-  // Every repeat happens after a compaction, so the baseline is exactly 0 and a
-  // ratio would be infinite. The absolute floor is what decides.
+  // Every repeat falls after a compaction, so the baseline is exactly 0 and any
+  // ratio against it is infinite. Ten repeats clear the event guard, but 1.7%
+  // of turns is not information loss, and the absolute floor is what says so.
   const barely = compactionVerdict(many(10, {
     compactions: [comp({ trigger: "manual", pre: 400000, post: 200000 })],
-    human_turns: 40, turns_after_compaction: 30,
-    reexplain_after_compaction: 2, reexplain: 2 }));
-  assert.equal(barely.loss && barely.loss.rateBase, 0);
-  assert.notEqual(barely.verdict, "lossy", "0.7% of turns is not information loss");
+    human_turns: 100, turns_after_compaction: 60,
+    reexplain_after_compaction: 1, reexplain: 1 }));
+  assert.equal(barely.loss.rateBase, 0, "nothing was repeated outside the window");
+  assert.equal(barely.loss.events, 10, "the event guard is satisfied");
+  assert.ok(barely.loss.rateAfter < 2);
+  assert.notEqual(barely.verdict, "lossy");
 });
 
 test("sessions that ran hot without ever compacting are counted", () => {
