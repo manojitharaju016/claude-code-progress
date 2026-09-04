@@ -30,13 +30,23 @@ METRICS_SCHEMA_VERSION = metrics.METRICS_SCHEMA_VERSION
 # Only these lines can carry a signal. Everything else (attachments other than a
 # queued command, ai-title, file-history, worktree state) is skipped before the
 # JSON parser sees it, which is most of the file.
-PREFILTERS = (
-    b'"type":"assistant"',
-    b'"type":"user"',
-    b'"compact_boundary"',
-    b'"type":"pr-link"',
-    b'"type":"continued-in"',
-    b'"queued_command"',
+# Written without a space after the colon by Claude Code today; both spellings
+# are accepted so a serialiser change cannot silently empty the whole feed.
+def _both_spellings(*markers):
+    out = []
+    for m in markers:
+        out.append(m.encode())
+        out.append(m.replace('":"', '": "').encode())
+    return tuple(out)
+
+
+PREFILTERS = _both_spellings(
+    '"type":"assistant"',
+    '"type":"user"',
+    '"compact_boundary"',
+    '"type":"pr-link"',
+    '"type":"continued-in"',
+    '"queued_command"',
 )
 
 HEAD_BYTES = 4096
@@ -182,10 +192,35 @@ def subagent_files(projects_dir):
     return out
 
 
+def load_judgements(judge_dir):
+    """Verdicts from the judge-sessions skill, plus the latest coach note."""
+    verdicts, coach = {}, None
+    try:
+        with open(os.path.join(judge_dir, "judge_cache.json")) as fh:
+            for sid, entry in (json.load(fh) or {}).items():
+                if isinstance(entry, dict) and entry.get("result"):
+                    r = dict(entry["result"])
+                    r.pop("sid", None)
+                    r["judged_by"] = entry.get("judged_by") or r.get("judged_by")
+                    r["judged_at"] = entry.get("at")
+                    verdicts[sid] = r
+    except (OSError, ValueError):
+        pass
+    notes = sorted(glob.glob(os.path.join(judge_dir, "coach", "*.json")))
+    if notes:
+        try:
+            with open(notes[-1]) as fh:
+                coach = json.load(fh)
+            coach["date"] = os.path.basename(notes[-1])[:-5]
+        except (OSError, ValueError):
+            coach = None
+    return verdicts, coach
+
+
 def build_metrics(projects_dir, cache, machine, reader_version,
                   scrub=None, publish_excerpt=False,
                   budget_secs=DEFAULT_BUDGET_SECS, window_days=DEFAULT_WINDOW_DAYS,
-                  progress=None):
+                  progress=None, judge_dir=None):
     """Compile every session into one compact tree. Returns (tree, stats)."""
     started = time.time()
     now = datetime.now(timezone.utc)
@@ -282,6 +317,18 @@ def build_metrics(projects_dir, cache, machine, reader_version,
 
     _link_resumes(sessions)
 
+    verdicts, coach = load_judgements(judge_dir) if judge_dir else ({}, None)
+    judge_tokens = 0
+    for rec in sessions:
+        v = verdicts.get(rec.get("sid"))
+        if v:
+            rec["j"] = v
+        if rec.get("kind") == "judge":
+            # What the coaching itself costs, so the price is on the dashboard
+            # rather than in a footnote.
+            for b in (rec.get("by_model") or {}).values():
+                judge_tokens += b.get("in", 0) + b.get("cc5", 0) + b.get("cc1h", 0) + b.get("cr", 0) + b.get("out", 0)
+
     recent, lifetime = [], {"sessions": 0, "by_model": {}}
     for rec in sessions:
         lifetime["sessions"] += 1
@@ -303,6 +350,9 @@ def build_metrics(projects_dir, cache, machine, reader_version,
         "excerpts_published": bool(publish_excerpt),
         "sessions": recent,
         "lifetime": lifetime,
+        "judged": len(verdicts),
+        "judge_tokens": judge_tokens,
+        "coach": coach,
     }
     return tree, {"scanned": scanned, "skipped": skipped, "sessions": len(recent),
                   "files": len(files), "subagents": len(subs),

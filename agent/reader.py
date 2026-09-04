@@ -405,6 +405,7 @@ def build_metrics_tree(budget_secs, show_progress=False):
         publish_excerpt=publish,
         budget_secs=budget_secs,
         progress=_progress if show_progress else None,
+        judge_dir=os.path.join(CC_DIR, "judge"),
     )
     if show_progress:
         sys.stderr.write("\n")
