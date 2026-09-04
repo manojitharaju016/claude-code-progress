@@ -18,8 +18,8 @@ compatibility_date = "2026-07-01"
 directory = "./public"
 binding = "ASSETS"
 # Run the Worker BEFORE serving any static file, so the password gate covers the
-# HTML/CSS/JS too — not just /api/*. This is the fix for the "static assets bypass
-# the gate" leak.
+# HTML/CSS/JS too — not just /api/*. Without this, the static files would be
+# served without any password check.
 run_worker_first = true
 
 [vars]

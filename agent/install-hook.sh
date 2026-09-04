@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# "Go live" step: add a SECOND Stop hook to ~/.claude/settings.json that launches
-# the cc-progress reader after every Claude Code turn. Your existing Stop hook
-# (update_vault.sh) is preserved. A timestamped backup is written first.
+# "Go live" step: add a Stop hook to ~/.claude/settings.json that launches the
+# cc-progress reader after every Claude Code turn. Any Stop hooks you already have
+# are preserved. A timestamped backup of settings.json is written first.
 # Re-running is safe (it won't add a duplicate).
 set -euo pipefail
 SETTINGS="$HOME/.claude/settings.json"

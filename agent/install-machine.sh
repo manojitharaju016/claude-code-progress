@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Set up cc-progress on THIS machine so its Claude Code sessions show on the
 # dashboard. Idempotent. Needs: reader.py, run.sh, hook-launch.sh, install-hook.sh
-# and .token already present in ~/.claude/cc-progress/ (copied here by the rollout).
+# and .token already present in ~/.claude/cc-progress/ (see README.md,
+# "Adding another machine").
 #
 # Usage:  CC_PROGRESS_OWNER=you CC_PROGRESS_REPO=work-progress CC_PROGRESS_MACHINE=laptop bash install-machine.sh
 #     or: CC_PROGRESS_OWNER=you CC_PROGRESS_REPO=work-progress bash install-machine.sh laptop

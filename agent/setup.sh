@@ -9,17 +9,22 @@
 #
 # What this does (all via that fine-grained token — no broad access used):
 #   - pushes the website (public/, src/, wrangler.toml) to the `main` branch
-#   - creates the `data` branch with an initial progress.json (reader output)
+#   - creates this machine's `data-<machine>` branch with an initial progress.json
 #   - creates the `overlay` branch with an empty overlay.json (your edits go here)
-#   - sets up ~/.claude/cc-progress/datapush as the reader's push clone (data branch)
+#   - sets up ~/.claude/cc-progress/datapush as the reader's push clone
 # It does NOT install the Stop hook and does NOT touch Cloudflare — those are
 # separate, confirmed steps.
 set -euo pipefail
 
 OWNER="${CC_PROGRESS_OWNER:?set your GitHub username first, e.g.: CC_PROGRESS_OWNER=you CC_PROGRESS_REPO=work-progress bash setup.sh}"
 REPO="${CC_PROGRESS_REPO:?set your repo name first, e.g.: CC_PROGRESS_OWNER=you CC_PROGRESS_REPO=work-progress bash setup.sh}"
-DATA_BRANCH="data"
 OVERLAY_BRANCH="overlay"
+
+# This machine's label: CC_PROGRESS_MACHINE, else the short hostname. Every machine
+# pushes to its own data-<machine> branch; run.sh reads the label back from .machine.
+MACHINE="${CC_PROGRESS_MACHINE:-$(hostname -s 2>/dev/null || hostname)}"
+MACHINE="$(printf '%s' "$MACHINE" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9._-')"
+DATA_BRANCH="data-$MACHINE"
 
 ROOT="$HOME/.claude/cc-progress"
 SRC="$ROOT/repo"
@@ -41,6 +46,8 @@ git_init_branch() { # usage: git_init_branch <branch>   (run with cwd already se
 chmod 600 "$TOKENFILE"
 TOKEN="$(tr -d ' \n\r\t' < "$TOKENFILE")"
 [ -n "$TOKEN" ] || die "Token file is empty."
+[ -n "$MACHINE" ] || die "Could not determine a machine label; set CC_PROGRESS_MACHINE=<name>."
+printf '%s' "$MACHINE" > "$ROOT/.machine"
 
 # credential helper that feeds the fine-grained token from .token (keeps the
 # token OUT of any .git/config URL). The path is %q-escaped before splicing into
@@ -68,7 +75,7 @@ git remote add origin "$REMOTE"
 GIT push -u origin main
 
 # --- data branch (reader output) via the datapush clone ---
-say "Creating datapush clone + data branch ..."
+say "Creating datapush clone + $DATA_BRANCH branch (machine label: $MACHINE) ..."
 rm -rf "$DATAPUSH"
 mkdir -p "$DATAPUSH/data"
 cd "$DATAPUSH"
@@ -77,7 +84,7 @@ git config credential.helper "$HELPER"
 git config user.email "cc-progress@localhost"
 git config user.name "cc-progress"
 git remote add origin "$REMOTE"
-"$PY" "$ROOT/reader.py" --out "$DATAPUSH/data/progress.json"
+CC_PROGRESS_MACHINE="$MACHINE" "$PY" "$ROOT/reader.py" --out "$DATAPUSH/data/progress.json"
 git add data/progress.json
 git commit -q -m "progress"
 git push --force -u origin "$DATA_BRANCH"
@@ -96,7 +103,7 @@ GIT push -u origin "$OVERLAY_BRANCH"
 cd "$ROOT"; rm -rf "$TMP"
 
 chmod 700 "$ROOT" 2>/dev/null || true
-say "Done. Repo has 3 branches: main (site), data (progress), overlay (your edits)."
+say "Done. Repo has 3 branches: main (site), $DATA_BRANCH (this machine's progress), overlay (your edits)."
 echo
 echo "Next: (A) set up the Cloudflare Worker (see README section 'Cloudflare')."
 echo "      (B) when ready to go live, install the Stop hook (see README 'Go live')."

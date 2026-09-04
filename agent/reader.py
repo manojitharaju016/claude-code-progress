@@ -2,12 +2,12 @@
 """
 cc-progress reader — turns local Claude Code activity into one small progress.json.
 
-Runs on this machine, standard library only (pinned to /usr/bin/python3).
+Runs on this machine, standard library only.
 It reads the Claude Code session logs under ~/.claude/projects, pulls out the
 latest to-do list + auto-title per session, works out which sessions are live,
 and compiles a compact progress tree the website renders.
 
-Design notes (see the approved plan):
+Design notes:
   * To-do lists are matched on the STRUCTURAL marker  "name":"TodoWrite"
     (a real tool call), never the bare word "TodoWrite" — that word also appears
     in Claude Code's own reminder text and tool-availability lists, usually AFTER
