@@ -33,7 +33,7 @@ test("no multiple is quoted when the reference rate is too small to divide by", 
   assert.ok(better.rate < MIN_RATE_FOR_RATIO);
   assert.equal(c.canRatio, false);
   assert.equal(c.ratio, null);
-  assert.match(c.phrase, /per 10 turns$/, "an absolute gap, never an x");
+  assert.match(c.phrase, /per 10 messages$/, "an absolute gap, never an x");
 });
 
 test("a multiple is quoted once the reference group has a real rate", () => {
@@ -129,7 +129,7 @@ test("the report never ends in a doubled full stop", () => {
 });
 
 test("an empty period says so rather than dividing by zero", () => {
-  assert.match(report([], []), /No sessions/);
+  assert.match(report([], []), /Nothing recorded/);
   const { findings } = runRules([]);
   assert.deepEqual(findings, []);
 });
@@ -196,6 +196,26 @@ test("sessions that ran hot without ever compacting are counted", () => {
   const v = compactionVerdict([...many(9, { ctx_peak: 900000, compactions: [] }),
                                ...many(9, { compactions: [comp()] })]);
   assert.equal(v.ranHot, 9);
+});
+
+test("never compacting is a verdict too, not praise for compacting by choice", () => {
+  // Nine sessions ride past 80% of the window and one compacts by hand well
+  // below it. Judging only the compactions that happened would call this good.
+  const v = compactionVerdict([
+    ...many(9, { ctx_peak: 900000, compactions: [] }),
+    ...many(1, { compactions: [comp({ trigger: "manual", pre: 400000, post: 200000 })] }),
+  ]);
+  assert.equal(v.verdict, "left too late");
+  assert.match(v.detail, /past 80%/);
+  assert.match(v.improve, /60 to 75%/);
+});
+
+test("by choice needs manual compactions and no sessions running hot", () => {
+  const v = compactionVerdict(many(10, {
+    ctx_peak: 300000, human_turns: 40,
+    compactions: [comp({ trigger: "manual", pre: 400000, post: 200000 })] }));
+  assert.equal(v.verdict, "by choice");
+  assert.equal(v.ranHot, 0);
 });
 
 // --- cost ------------------------------------------------------------------

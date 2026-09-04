@@ -4,6 +4,9 @@
 
 "use strict";
 
+import { navShadow, moveThumb, revealOnScroll, markReveal } from "./motion.js";
+import { openPrompting, closePrompting, repaintCharts } from "./metrics.js";
+
 const DATA_URL = "/api/data";
 const SAVE_URL = "/api/save";
 const FALLBACK_URL = "./data.json"; // local preview without a Worker
@@ -711,7 +714,10 @@ function initTheme() {
     const next = cur === "light" ? "dark" : cur === "dark" ? null : "light";
     if (next) { document.documentElement.setAttribute("data-theme", next); localStorage.setItem("cc_theme", next); }
     else { document.documentElement.removeAttribute("data-theme"); localStorage.removeItem("cc_theme"); }
+    repaintCharts();
   });
+  const os = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)");
+  if (os && os.addEventListener) os.addEventListener("change", () => repaintCharts());
 }
 
 function initControls() {
@@ -738,8 +744,40 @@ function initControls() {
   });
 }
 
+function currentView() {
+  return new URLSearchParams(location.search).get("view") === "prompting" ? "prompting" : "progress";
+}
+
+function showView(name, push) {
+  const nav = $("#view-switch");
+  for (const b of nav.querySelectorAll(".seg-btn")) {
+    b.setAttribute("aria-selected", String(b.dataset.view === name));
+  }
+  moveThumb(nav);
+  $("#view-progress").hidden = name !== "progress";
+  $("#view-prompting").hidden = name !== "prompting";
+  if (name === "prompting") { openPrompting(); } else { closePrompting(); }
+  if (push) {
+    const url = new URL(location.href);
+    if (name === "progress") url.searchParams.delete("view");
+    else url.searchParams.set("view", name);
+    history.replaceState(null, "", url);
+  }
+  revealOnScroll();
+}
+
+function initViews() {
+  const nav = $("#view-switch");
+  nav.addEventListener("click", (e) => {
+    const btn = e.target.closest(".seg-btn");
+    if (btn) showView(btn.dataset.view, true);
+  });
+  addEventListener("resize", () => moveThumb(nav));
+  navShadow($("#topbar"));
+}
+
 async function init() {
-  initTheme(); initControls();
+  initTheme(); initControls(); initViews();
   const params = new URLSearchParams(location.search);
   const th = params.get("theme");
   if (th === "dark" || th === "light") document.documentElement.setAttribute("data-theme", th);
@@ -756,6 +794,8 @@ async function init() {
   const mc = params.get("machine");
   if (mc) machineFilter = mc;
   if ((q || mc) && lastTree) render(lastTree);
+  showView(currentView(), false);
+  requestAnimationFrame(() => moveThumb($("#view-switch")));
   startPolling();
 }
 document.addEventListener("DOMContentLoaded", init);

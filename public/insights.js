@@ -71,7 +71,7 @@ export function compare(worse, better) {
     // The phrase a headline should use, so no card has to decide this itself.
     phrase: canRatio
       ? `${(worse.rate / better.rate).toFixed(1)}x`
-      : `${gap >= 0 ? "+" : ""}${gap.toFixed(1)} per 10 turns`,
+      : `${gap >= 0 ? "+" : ""}${gap.toFixed(1)} per 10 messages`,
     enough: worse.n >= MIN_N && better.n >= MIN_N,
   };
 }
@@ -137,7 +137,7 @@ export function priceFor(model, pricing) {
 //     confidence, effect, reach, n }
 // The view renders every finding the same way, so the shape is the contract.
 
-const CORRELATION = "Sessions differ in more than this one thing, so read it as an association, not a cause.";
+const CORRELATION = "Sessions differ in more than this one thing, so treat it as a pattern worth trying, not proof.";
 
 function groupCompare(opts) {
   const { worse, better, events = hard, den = turns } = opts;
@@ -159,21 +159,21 @@ export const RULES = [
       if (!c.enough || c.gap <= 0) return null;
       const buckets = [0, 1, 2, 3].map((k) => {
         const g = pool.filter((s) => anchors(s) === k);
-        return { label: `${k} anchor${k === 1 ? "" : "s"}`, ...pooledRate(g, hard, turns) };
+        return { label: `${k} signpost${k === 1 ? "" : "s"}`, ...pooledRate(g, hard, turns) };
       });
       const pctFew = (few.length / pool.length) * 100;
       return {
         headline: c.canRatio
-          ? `Openers with at most one anchor ran ${c.phrase} the hard revisions`
-          : `Openers with at most one anchor ran ${c.phrase} more hard revisions`,
-        chart: { kind: "bars", buckets, xTitle: "hard revisions per 10 turns",
+          ? `First messages with at most one signpost needed ${c.phrase} as many corrections`
+          : `First messages with at most one signpost needed ${c.phrase} more corrections`,
+        chart: { kind: "bars", buckets, xTitle: "corrections per 10 messages",
                  highlight: buckets.findIndex((x) => x.n === Math.max(...buckets.map((y) => y.n))),
                  reference: pooledRate(pool, hard, turns).rate, referenceLabel: "your overall rate" },
-        wentWrong: `${pctFew.toFixed(0)}% of your openers carried at most one of the three anchors. Those sessions ran ${a.rate.toFixed(1)} hard revisions per 10 turns against ${b.rate.toFixed(1)} when two or more were present.`,
-        improve: "Open with all three even when the task feels obvious: one path, one thing that must not change, one check that proves it is done.",
+        wentWrong: `In ${pctFew.toFixed(0)}% of your sessions the first message had at most one of the three. Those needed ${a.rate.toFixed(1)} corrections for every 10 messages you sent; the ones with two or three needed ${b.rate.toFixed(1)}.`,
+        improve: "Say all three up front, even when the job feels obvious: where the code is, what must not change, and how you will both know it worked.",
         promptShape: "In <path>, <change>. Do not touch <area>. Done when `<command>` shows <result>.",
-        howToRead: "Each bar is a group of sessions, grouped by how many of the three anchors the first message carried. Bar length is that whole group's hard corrections per 10 of your turns; the whiskers show the range that many events implies. The dashed line is your overall rate. Grey bars have too few sessions to read.",
-        confidence: `${few.length} sessions with 0-1 anchors, ${many.length} with 2-3. Anchors are detected by pattern, not by reading. ${CORRELATION}`,
+        howToRead: "Sessions are grouped by how many of the three things the first message mentioned. The bar is how often you had to correct Claude in that group, per 10 messages you sent. The thin line through it is the range you would expect from this few events, so short bars with long lines are not really different. The dotted line is your average. Grey bars have fewer than five sessions behind them.",
+        confidence: `${few.length} sessions had one or none, ${many.length} had two or three. These three are spotted by pattern-matching your text, not by understanding it. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: few.length / Math.max(1, pool.length), n: pool.length,
       };
@@ -203,15 +203,15 @@ export const RULES = [
       const knee = usable.find((x) => x !== first && x.rate >= first.rate * 1.3);
       return {
         headline: c.canRatio
-          ? `Past ${(knee || last).from} turns, hard revisions ran ${c.phrase} higher`
-          : `Longer sessions ran ${c.phrase} more hard corrections`,
-        chart: { kind: "bars", buckets, xTitle: "hard revisions per 10 turns",
+          ? `After about ${(knee || last).from} messages, you correct Claude ${c.phrase} more often`
+          : `Longer sessions ran ${c.phrase} more corrections`,
+        chart: { kind: "bars", buckets, xTitle: "corrections per 10 messages",
                  highlight: buckets.indexOf(last), strip: true },
-        wentWrong: `${last.n} sessions ran to ${last.label}. They averaged ${last.rate.toFixed(1)} hard revisions per 10 turns against ${first.rate.toFixed(1)} in ${first.label}, and ${last.compacted.toFixed(0)}% of them compacted.`,
-        improve: "One session per deliverable. At the knee, ask for a handoff note, commit what passes, and open a new session with that note as its first message.",
+        wentWrong: `${last.n} of your sessions went on for ${last.label}. In those you corrected Claude ${last.rate.toFixed(1)} times per 10 messages, against ${first.rate.toFixed(1)} in the shortest ones, and ${last.compacted.toFixed(0)}% of them ran out of room and had to be compacted.`,
+        improve: "Finish one thing per session. When it starts to drag, ask for a short handover note, commit whatever passes, and start again with that note as your first message. A fresh session beats a tired one.",
         promptShape: "Continuing earlier work. State: <what is done, verified by what>. Files: <paths>. Constraints: <list>. Next: <one goal>. Done when: <check>. Do not redo <finished step>.",
-        howToRead: "Sessions grouped by how many messages you sent. Bar length is that group's hard corrections per 10 turns. The strip above each bar gives the share that compacted and the median peak context. Long sessions are long partly because they were hard.",
-        confidence: `${pool.length} sessions across ${usable.length} readable groups. ${CORRELATION}`,
+        howToRead: "Sessions grouped by how long they ran, counted in messages you sent. The bar is how often you had to correct Claude in that group. Long sessions are long partly because the work was hard, so this is not only about fatigue.",
+        confidence: `${pool.length} sessions, in ${usable.length} groups big enough to read. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: last.n / Math.max(1, pool.length), n: pool.length,
       };
@@ -227,16 +227,16 @@ export const RULES = [
       if (!c.enough || c.gap <= 0) return null;
       return {
         headline: c.canRatio
-          ? `Resumed sessions ran ${c.phrase} the hard revisions of fresh starts`
-          : `Resumed sessions ran ${c.phrase} more hard revisions than fresh starts`,
+          ? `Picking up an old session needed ${c.phrase} as many corrections as starting fresh`
+          : `Picking up an old session needed ${c.phrase} more corrections than starting fresh`,
         chart: { kind: "dots", rows: [
           { label: "fresh start", ...b, accent: false },
-          { label: "resumed", ...a, accent: true }], xTitle: "hard revisions per 10 turns" },
-        wentWrong: `${resumed.length} sessions continued earlier work and ran ${a.rate.toFixed(1)} hard revisions per 10 turns against ${b.rate.toFixed(1)} for fresh starts.`,
-        improve: "A resumed transcript is long and may already be compacted. Restate the verified current state in one message rather than trusting it to be reconstructed.",
+          { label: "resumed", ...a, accent: true }], xTitle: "corrections per 10 messages" },
+        wentWrong: `${resumed.length} of your sessions carried on from an earlier one. In those you corrected Claude ${a.rate.toFixed(1)} times per 10 messages, against ${b.rate.toFixed(1)} when you started fresh.`,
+        improve: "An old session is long and may already have been compacted, so what Claude still remembers is not what you remember. Say where things stand in one message instead of assuming.",
         promptShape: "Resuming <task>. Verified so far: <fact + how verified>. Unverified: <fact>. Files: <paths>. Next: <goal>. Done when: <check>.",
-        howToRead: "Each row is a group of sessions. The dot is the group's hard corrections per 10 of your turns; the line is the range that many events implies.",
-        confidence: `${resumed.length} resumed, ${fresh.length} fresh. People resume the sessions that were already hard. ${CORRELATION}`,
+        howToRead: "Each row is a group of sessions. The dot is how often you corrected Claude, per 10 messages you sent. The line through it is the range you would expect from this few events.",
+        confidence: `${resumed.length} carried on, ${fresh.length} started fresh. People tend to carry on with the sessions that were already going badly. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: resumed.length / Math.max(1, pool.length), n: pool.length,
       };
@@ -258,15 +258,15 @@ export const RULES = [
       const c = compare(a, b);
       if (!c.enough || c.gap <= 0) return null;
       return {
-        headline: `On big tasks, sessions that planned first had ${b.rate.toFixed(1)} rejected or interrupted tool calls per 100, against ${a.rate.toFixed(1)} without`,
+        headline: `On big jobs, planning first meant ${b.rate.toFixed(1)} rejected or stopped actions per 100, against ${a.rate.toFixed(1)} without a plan`,
         chart: { kind: "dots", rows: [
           { label: "planned first", ...b, accent: true },
-          { label: "no plan", ...a, accent: false }], xTitle: "rejected or interrupted tool calls per 100" },
-        wentWrong: `${not.length} of your ${big.length} big sessions (${cut}+ tool calls) started without a plan, and you planned in only ${((planned.length / Math.max(1, big.length)) * 100).toFixed(0)}% of them.`,
-        improve: "For anything touching more than about three files, or unfamiliar code, ask for a plan and stop before edits. Rejecting a plan costs one turn; rejecting edits costs many.",
+          { label: "no plan", ...a, accent: false }], xTitle: "rejected or stopped actions per 100" },
+        wentWrong: `${not.length} of your ${big.length} biggest sessions started without a plan. Big here means ${cut} actions or more, which is your own halfway mark.`,
+        improve: "For anything touching more than about three files, or code you do not know well, ask for the plan first and hold it there. Turning down a plan costs one message. Turning down the edits it would have made costs a lot more.",
         promptShape: "Plan first, no edits yet: <goal> in <path>. List the files you will touch, the order, the risks and the check you will run. Wait for my go-ahead.",
-        howToRead: "Only sessions at or above your median tool-call count. The dot is rejected edits plus interrupted tool calls per 100 tool calls, so a long session does not dominate.",
-        confidence: `${planned.length} planned, ${not.length} unplanned big sessions. You may already reserve planning for tasks you know are risky. ${CORRELATION}`,
+        howToRead: "Only the bigger half of your sessions, measured by how many actions Claude took. The dot counts the edits you turned down and the actions you stopped, per 100 actions, so one very long session cannot swamp the rest.",
+        confidence: `${planned.length} planned, ${not.length} did not. You probably already plan the jobs you know are risky, which cuts both ways. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: not.length / Math.max(1, pool.length), n: big.length,
       };
@@ -289,16 +289,16 @@ export const RULES = [
       if (!c.enough || c.gap <= 0) return null;
       return {
         headline: c.canRatio
-          ? `When Claude asked at least once, interrupts and steers ran ${c.phrase} lower`
-          : `When Claude asked at least once, interrupts and steers ran ${c.phrase} lower`,
+          ? `When Claude asked you something first, you interrupted it ${c.phrase} less`
+          : `When Claude asked you something first, you interrupted it ${c.phrase} less`,
         chart: { kind: "dots", rows: [
           { label: "asked at least once", ...b, accent: true },
-          { label: "never asked", ...a, accent: false }], xTitle: "interrupts and mid-turn steers per 10 turns" },
-        wentWrong: `Claude asked you nothing in ${((never.length / Math.max(1, pool.length)) * 100).toFixed(0)}% of your busy sessions. Those ran ${a.rate.toFixed(1)} interrupts and steers per 10 turns against ${b.rate.toFixed(1)} when it asked.`,
-        improve: "For anything ambiguous, end the opener with a capped invitation to ask, and answer everything in one message so the run is not interrupted later.",
+          { label: "never asked", ...a, accent: false }], xTitle: "interruptions per 10 messages" },
+        wentWrong: `In ${((never.length / Math.max(1, pool.length)) * 100).toFixed(0)}% of your busy sessions Claude never asked you anything. In those you interrupted or redirected it ${a.rate.toFixed(1)} times per 10 messages, against ${b.rate.toFixed(1)} when it did ask.`,
+        improve: "When the job is open to interpretation, end your first message by inviting a few questions, then answer them all at once. Better to spend one message up front than to keep stopping it later.",
         promptShape: "<task>. Before you start, ask me up to 3 questions whose answers would change your approach. Then wait for my reply.",
-        howToRead: "Your answers to Claude's own questions are excluded from the turn count, so the comparison is not flattered by the extra turns they add. Claude asks more on ambiguous tasks, which also attract steering.",
-        confidence: `${asked.length} sessions where it asked, ${never.length} where it did not. ${CORRELATION}`,
+        howToRead: "Your replies to Claude's own questions are left out of the count, otherwise asking would look good simply because it adds messages. Claude also asks more on vague jobs, which are the ones you would interrupt anyway.",
+        confidence: `It asked in ${asked.length} sessions and stayed quiet in ${never.length}. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: never.length / Math.max(1, pool.length), n: pool.length,
       };
@@ -327,24 +327,24 @@ export const RULES = [
       const mh = median(heavy.map(bytesOf)), ml = median(light.map(bytesOf));
       const calls = ctx.sessions.reduce((n, s) => n + ((s.tools || {})[topTool] || 0), 0);
       return {
-        headline: `${topTool} put ${pct.toFixed(0)}% of all tool output into your context`,
+        headline: `The ${topTool} tool alone accounts for ${pct.toFixed(0)}% of everything read into your conversations`,
         chart: { kind: "bars", horizontal: true,
                  buckets: ranked.map(([t, b]) => ({ label: t, rate: b / 1e6, n: MIN_N,
                    bandLo: b / 1e6, bandHi: b / 1e6,
                    calls: ctx.sessions.reduce((n2, s) => n2 + ((s.tools || {})[t] || 0), 0) })),
                  xTitle: "megabytes returned into the conversation", highlight: 0 },
-        wentWrong: `${topTool} returned ${(topBytes / 1e6).toFixed(1)} MB over ${calls} calls. Sessions that peaked above 70% of the window read a median ${fmtBytes(mh)} of tool output against ${fmtBytes(ml)} for the rest.`,
-        improve: "Ask for narrow reads: search before reading, line ranges instead of whole files, and delegate broad exploration to a subagent that reports a summary rather than content.",
+        wentWrong: `${topTool} returned ${(topBytes / 1e6).toFixed(1)} MB across ${calls} calls. The sessions that filled more than 70% of their context window read ${fmtBytes(mh)} of tool output on average, against ${fmtBytes(ml)} for the rest.`,
+        improve: "Read less. Search first, ask for the lines you need instead of whole files, and hand wide exploration to a subagent that comes back with a summary rather than the text itself.",
         promptShape: "Explore <area> with a subagent and return only: files involved (max 10), function names with line ranges, a 5-line summary. Cap command output with | tail -40.",
-        howToRead: "Bars are the total bytes each tool returned into the conversation across every session in view. Bytes are roughly four to a token. Big reads are sometimes necessary; this shows where the window went, not that it was wasted.",
-        confidence: `${ctx.sessions.length} sessions, ${Object.keys(totals).length} tools. ${CORRELATION}`,
+        howToRead: "How much each tool has poured into your conversations, across every session shown. Roughly four bytes to a token. Some of it had to be read, so this shows where the space went, not that it was wasted.",
+        confidence: `Across ${ctx.sessions.length} sessions and ${Object.keys(totals).length} tools. ${CORRELATION}`,
         effect: Math.min(2, pct / 40), reach: 1, n: ctx.sessions.length,
       };
     },
   },
   {
     id: "cache_resets",
-    title: "Idle gaps and cache resets",
+    title: "Idle gaps and conversation restarts",
     run(ctx) {
       const pool = ctx.sessions.filter((s) => (s.tool_calls_total || 0) >= 10);
       if (pool.length < MIN_N * 2) return null;
@@ -361,18 +361,18 @@ export const RULES = [
         return t ? (w / t) * 100 : 0;
       };
       return {
-        headline: `${totalResets} cache resets across ${withReset.length} sessions rebuilt context you had already paid for`,
+        headline: `The whole conversation was re-sent ${totalResets} times across ${withReset.length} sessions`,
         chart: { kind: "dots", rows: [
           { label: "sessions with a reset", n: withReset.length, rate: writeShare(withReset),
             bandLo: writeShare(withReset), bandHi: writeShare(withReset), accent: true },
           { label: "sessions without", n: pool.length - withReset.length,
             rate: writeShare(pool.filter((s) => !(s.cache_resets || 0))), bandLo: 0, bandHi: 0, accent: false },
         ], xTitle: "share of input tokens spent writing cache, %" },
-        wentWrong: `${pctSessions.toFixed(0)}% of your busy sessions hit at least one cache reset. A reset means the cached conversation expired and the whole context was re-sent at write price rather than read price.`,
-        improve: "Long thinking breaks are what expire a cache. If you must step away mid-session, finish the current step first; coming back to a cold cache costs the whole window again.",
-        promptShape: "Before I step away: summarise the state to <path>/HANDOFF.md so we can resume cheaply.",
-        howToRead: "A reset is counted when the tokens read from cache fall by more than half between one call and the next. The dots compare how much of each group's input spend went on writing cache rather than reading it.",
-        confidence: `${pool.length} busy sessions in view. Cache lifetime depends on timing, not only on you.`,
+        wentWrong: `This happened in ${pctSessions.toFixed(0)}% of your busy sessions. Claude keeps a copy of the conversation so it does not have to re-read it every time, and that copy expires if you leave it long enough. When it does, everything is sent again, at about ten times the price of reading the copy.`,
+        improve: "What expires it is a long pause. If you need to step away mid-session, finish the current step first, or note where you are and come back to a new session.",
+        promptShape: "Before I step away: write where we are to <path>/HANDOFF.md, so we can pick it up in a fresh session.",
+        howToRead: "Counted whenever the amount Claude read from its saved copy suddenly halves, which means the copy had gone. The dots compare how much of each group went on making a new copy rather than reading the old one.",
+        confidence: `${pool.length} busy sessions. How long the copy survives is partly out of your hands.`,
         effect: Math.min(2, totalResets / Math.max(1, pool.length)), reach: withReset.length / pool.length, n: pool.length,
       };
     },
@@ -380,7 +380,7 @@ export const RULES = [
   // --- rules that need judged sessions ------------------------------------
   {
     id: "first_prompt_score",
-    title: "How complete your openers are",
+    title: "How complete your first messages are",
     needsJudged: true,
     run(ctx) {
       const pool = ctx.judged.filter((s) => (s.tool_calls_total || 0) >= 1);
@@ -393,14 +393,14 @@ export const RULES = [
       if (!c.enough || c.gap <= 0) return null;
       return {
         headline: c.canRatio
-          ? `Openers scoring 1 or less drew ${c.phrase} the hard revisions`
-          : `Openers scoring 1 or less drew ${c.phrase} more hard revisions`,
-        chart: { kind: "bars", buckets, xTitle: "hard revisions per 10 turns", highlight: 0 },
-        wentWrong: `${low.n} sessions opened with a message the judge scored at most 1 out of 5, and ran ${low.rate.toFixed(1)} hard revisions per 10 turns against ${high.rate.toFixed(1)} for the best-scored group.`,
-        improve: "Before pressing enter, check the opener names the goal, where the code lives, what works now, what done looks like, and one thing not to touch.",
+          ? `First messages scored 1 or less needed ${c.phrase} as many corrections`
+          : `First messages scored 1 or less needed ${c.phrase} more corrections`,
+        chart: { kind: "bars", buckets, xTitle: "corrections per 10 messages", highlight: 0 },
+        wentWrong: `${low.n} of your sessions began with a message that scored at most 1 out of 5. Those needed ${low.rate.toFixed(1)} corrections per 10 messages, against ${high.rate.toFixed(1)} for your best-scored openings.`,
+        improve: "Before you press enter, check your first message says five things: what you want, where the code is, what works today, how you will know it is finished, and one thing to leave alone.",
         promptShape: "Goal: <one sentence>. Where: <path>. Current state: <what works / what fails>. Done when: <command and expected output>. Do not: <boundary>. Scope: only <files>.",
-        howToRead: "Sessions grouped by the judge's 0-5 score for the first message, one point per rubric item present. Bar length is that group's hard corrections per 10 turns.",
-        confidence: `${pool.length} judged sessions. The score reads the prompt, not the task; harder tasks attract both vaguer prompts and more corrections. ${CORRELATION}`,
+        howToRead: "Sessions grouped by how the review scored your first message, one point for each of the five things it looks for. The bar is how often you had to correct Claude in that group.",
+        confidence: `${pool.length} reviewed sessions. The score reads your message, not the job. Harder jobs tend to get vaguer descriptions and more corrections both. ${CORRELATION}`,
         effect: c.canRatio ? Math.min(2, c.ratio - 1) : c.gap / 2,
         reach: low.n / Math.max(1, pool.length), n: pool.length,
       };
@@ -426,16 +426,16 @@ export const RULES = [
                       scope_change: "you changed the goal", env_issue: "tools or environment failed",
                       context_loss: "Claude had been told and lost it" };
       return {
-        headline: `The judge attributed ${pct.toFixed(0)}% of your corrections to the prompt rather than the model`,
+        headline: `Most of your corrections trace back to what was asked, not to what Claude did`,
         chart: { kind: "bars", horizontal: true,
                  buckets: Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({
                    label: names[k] || k, rate: v, n: MIN_N, bandLo: v, bandHi: v })),
-                 xTitle: "corrective turns", highlight: 0 },
-        wentWrong: `${gap} of ${attributed} attributed turns were judged as gaps in what you asked for. ${labelled - attributed} corrective turns carried no attribution.`,
-        improve: "Treat every prompt-gap correction as a missing line in your opener. Keep a short standing preamble and paste it at the top of each new session.",
+                 xTitle: "corrections", highlight: 0 },
+        wentWrong: `Of the ${attributed} corrections with a reason attached, ${gap} came down to something missing from what you asked. Another ${labelled - attributed} had no reason recorded.`,
+        improve: "Treat every prompt-gap correction as a missing line in your first message. Keep a short standing preamble and paste it at the top of each new session.",
         promptShape: "Standing rules: <rule 1>; <rule 2>; <rule 3>. Task: <goal>. Where: <path>. Done when: <check>. If anything is ambiguous, ask before editing.",
-        howToRead: "Bars count corrective turns by the cause the judge assigned. Cause labels are one model's judgement per turn and tend to over-attribute to prompts, so read the ordering rather than the exact counts.",
-        confidence: `${attributed} attributed turns across ${ctx.judged.length} judged sessions.`,
+        howToRead: "Each bar counts the corrections put down to one cause. Prompt gap means your message left something out. Model error means the ask was clear and Claude still got it wrong. The rest are you changing your mind, and something breaking. Each reason is one model's opinion, and it leans towards blaming the prompt, so trust the order more than the numbers.",
+        confidence: `${attributed} corrections with a reason, across ${ctx.judged.length} reviewed sessions.`,
         effect: Math.min(2, pct / 35), reach: 1, n: ctx.judged.length,
       };
     },
@@ -446,7 +446,7 @@ export const RULES = [
     needsJudged: true,
     run(ctx) {
       const items = ["files/locations", "expected output shape", "acceptance check",
-                     "constraints", "current state", "scope bound", "priority"];
+                     "constraints", "current state", "how far it should go", "priority"];
       const rows = [];
       for (const item of items) {
         const missing = ctx.judged.filter((s) => (s.j.missing || []).includes(item));
@@ -461,15 +461,15 @@ export const RULES = [
       const top = rows[0];
       if (top.gap <= 0) return null;
       return {
-        headline: `Openers missing ${top.item} ran ${top.gap.toFixed(1)} more hard revisions per 10 turns`,
+        headline: `Leaving out ${top.item} went with ${top.gap.toFixed(1)} more corrections per 10 messages`,
         chart: { kind: "dumbbell", rows: rows.map((r) => ({
           label: `${r.item} (left out in ${r.pct.toFixed(0)}%)`, a: r.b.rate, b: r.a.rate })),
-          xTitle: "hard revisions per 10 turns" },
-        wentWrong: `In ${top.pct.toFixed(0)}% of judged sessions the opener left out ${top.item}. Those ran ${top.a.rate.toFixed(1)} hard revisions per 10 turns against ${top.b.rate.toFixed(1)} when it was present.`,
-        improve: `Add ${top.item} to every opener this week. Say what already works and what was tried, and what form the answer should take.`,
+          xTitle: "corrections per 10 messages" },
+        wentWrong: `Your first message left out ${top.item} in ${top.pct.toFixed(0)}% of reviewed sessions. Those needed ${top.a.rate.toFixed(1)} corrections per 10 messages, against ${top.b.rate.toFixed(1)} when you included it.`,
+        improve: `Put ${top.item} in every first message this week and see if this number moves. It is one habit, not five.`,
         promptShape: "Goal: <one sentence>. Current state: <what exists / what was tried>. Files: <paths>. Output: <a PR / a file / a table / an answer>. Check: <how we know it worked>.",
-        howToRead: "Each row is one ingredient the judge checks. The grey dot is the correction rate when your opener included it, the blue dot when it did not, and the connector is the gap between them.",
-        confidence: `${ctx.judged.length} judged sessions. This is the largest of ${rows.length} comparisons, so the top row is the least certain; the ordering matters more than the number. ${CORRELATION}`,
+        howToRead: "One row per thing the review looks for. The grey dot is how often you corrected Claude when your first message included it, the blue dot when it did not, and the line between them is the difference.",
+        confidence: `${ctx.judged.length} reviewed sessions. This is the biggest of ${rows.length} comparisons, which makes the top row the least reliable one. Trust the order more than the number. ${CORRELATION}`,
         effect: Math.min(2, top.gap / 2), reach: top.pct / 100, n: ctx.judged.length,
       };
     },
@@ -513,21 +513,27 @@ export function compactionVerdict(sessions) {
   const rateBase = baseTurns ? (baseRe / baseTurns) * 100 : 0;
 
   let verdict, detail;
-  if (comps.length < 8) {
-    verdict = "not enough compactions to judge";
-    detail = `${comps.length} compactions so far. This card needs 8 before it draws a conclusion.`;
-  } else if (canCompareLoss && rateAfter >= rateBase * 1.5 && rateAfter >= MIN_LOSS_RATE) {
+  if (canCompareLoss && rateAfter >= rateBase * 1.5 && rateAfter >= MIN_LOSS_RATE) {
     verdict = "lossy";
     detail = `After a compaction you repeated earlier wording in ${rateAfter.toFixed(1)}% of turns against ${rateBase.toFixed(1)}% otherwise.`;
-  } else if (autoPct >= 70 || medPre >= 850000) {
+  } else if (comps.length >= 8 && (autoPct >= 70 || medPre >= 850000)) {
     verdict = "forced late";
     detail = `${autoPct.toFixed(0)}% of your compactions fired automatically, at a median ${(medPre / 1000).toFixed(0)}K tokens, dropping ${medDrop.toFixed(0)}% of the context in one step.`;
+  } else if (ranHot >= 5 && ranHot >= withC.length) {
+    // Not compacting is also an answer, and it is the one this corpus gives:
+    // sessions ride to the ceiling and pay full price for the whole window on
+    // every call. Reaching "by choice" here would have praised the opposite.
+    verdict = "left too late";
+    detail = `${ranHot} sessions ran past 80% of the context window without ever compacting, against ${withC.length} that compacted at all.`;
+  } else if (comps.length < 8) {
+    verdict = "not enough compactions to judge";
+    detail = `${comps.length} compactions so far. This card needs 8 before it draws a conclusion.`;
   } else if (per100 > 3) {
     verdict = "often";
     detail = `${per100.toFixed(1)} compactions per 100 turns is frequent enough to be worth pacing.`;
   } else {
     verdict = "by choice";
-    detail = `${(100 - autoPct).toFixed(0)}% of your compactions were manual and the ones after them show no excess repetition.`;
+    detail = `${(100 - autoPct).toFixed(0)}% of your compactions were manual, none of them fired at the ceiling, and the turns after them show no excess repetition.`;
   }
 
   return {
@@ -536,9 +542,11 @@ export function compactionVerdict(sessions) {
     loss: canCompareLoss ? { rateAfter, rateBase, after, events: afterRe }
                          : { tooFew: true, after, events: afterRe },
     points: comps,
-    improve: verdict === "forced late"
-      ? "Compact on your own terms at a task boundary, around 60 to 75% of the window, after asking for a handoff note saved to a file. A forced compaction at the ceiling drops almost everything at once."
-      : "Keep compacting at task boundaries rather than waiting for the ceiling.",
+    improve: (verdict === "forced late" || verdict === "left too late")
+      ? "Compact on your own terms at a task boundary, around 60 to 75% of the window, after asking for a handoff note saved to a file. A compaction at the ceiling drops almost everything at once, and every call before it pays for the whole window."
+      : (verdict === "lossy"
+        ? "Write the state to a file before compacting and paste it back afterwards, rather than re-explaining from memory."
+        : "Keep compacting at task boundaries rather than waiting for the ceiling."),
     promptShape: "Before we continue: write a handoff to <path>/HANDOFF.md with decisions made, files touched, verified facts and the exact next step. Then compact, keeping that file.",
     howToRead: "Each dot is one compaction: how far into the session it happened, and how full the context was when it fired. The line below each dot falls to what was kept. Blue dots you triggered; grey ones fired automatically at the ceiling.",
   };
@@ -570,17 +578,25 @@ export function runRules(sessions, opts = {}) {
 
 /** The paragraph at the top of the page, built from the strongest findings. */
 export function report(sessions, findings, extra = {}) {
-  if (!sessions.length) return "No sessions in this period yet.";
+  if (!sessions.length) return "Nothing recorded in this period yet.";
   const clean = share(sessions, noVisibleCorrection);
   const parts = [];
-  parts.push(`${sessions.length} sessions in view. ${clean.pct.toFixed(0)}% finished with no visible correction.`);
-  if (extra.judged) parts.push(`${extra.judged} were judged.`);
+  parts.push(`Across ${sessions.length} sessions, ${clean.pct.toFixed(0)}% ran start to finish without you stepping in.`);
+  if (extra.judged) parts.push(`${extra.judged} have been read through in detail.`);
   if (!findings.length) {
-    parts.push("Nothing stands out yet; the checks below unlock as more sessions land.");
+    parts.push("Nothing stands out yet. The checks below start reporting once there are enough sessions behind them.");
     return parts.join(" ");
   }
-  parts.push(`Biggest lever: ${findings[0].headline.toLowerCase()}.`);
-  if (findings[1]) parts.push(`Next: ${findings[1].headline.toLowerCase()}.`);
-  parts.push(`One change for tomorrow: ${findings[0].improve.split(". ")[0].replace(/\.$/, "")}.`);
+  parts.push(`The thing most worth changing: ${lower(findings[0].headline)}.`);
+  if (findings[1]) parts.push(`After that, ${lower(findings[1].headline)}.`);
+  parts.push(`If you change one thing tomorrow, make it this: ${trimStop(findings[0].improve.split(". ")[0])}.`);
   return parts.join(" ");
+}
+
+/** Lower-case a headline for mid-sentence use, but leave names like Read alone. */
+function lower(text) {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+function trimStop(text) {
+  return text.replace(/\.$/, "");
 }
