@@ -18,11 +18,13 @@ import { revealOnScroll, markReveal, toggleHeight, tweenNumber, reduced } from "
 
 const PERIODS = [["7d", 7], ["30d", 30], ["90d", 90], ["all", null]];
 const REFRESH_MS = 5 * 60 * 1000;
+const TABLE_STEP = 25;
 
 const state = {
   feed: null, pricing: null, loaded: false, plotly: null, plotlyError: null,
   period: 30, machines: new Set(), includeResumed: false, drill: null,
   sort: { key: "latest_ts", dir: -1 }, open: new Set(), etag: null, timer: null,
+  findings: [], finding: 0, tableRows: 25,
 };
 const charts = [];
 
@@ -306,18 +308,12 @@ function renderInsights(findings, locked) {
   const box = $("m-insights");
   box.textContent = "";
   charts.length = 0;
+  state.findings = findings;
   if (!findings.length) {
     box.append(el("div", "notice", "Nothing stands out over this period. More sessions will unlock the checks listed below."));
+  } else {
+    box.append(buildDeck(findings));
   }
-  findings.forEach((f, i) => {
-    const c = card();
-    c.append(el("div", "insight-rank", "Finding " + (i + 1) + " of " + findings.length));
-    c.append(el("h3", null, f.headline));
-    c.append(el("div", "insight-caption", captionFor(f)));
-    if (f.chart) c.append(chartBlock(f.chart, captionFor(f)));
-    c.append(proseBlock(f));
-    box.append(c);
-  });
   const lockedCard = $("m-locked-card");
   const list = $("m-locked");
   list.textContent = "";
@@ -331,6 +327,78 @@ function renderInsights(findings, locked) {
   } else {
     lockedCard.hidden = true;
   }
+}
+
+/**
+ * One panel, one finding at a time.
+ *
+ * Stacked, the findings ran to several screens and the strongest one scrolled
+ * away. They are built once and shown one at a time instead; a chart is only
+ * drawn when its pane is actually on screen, because a plot measured inside a
+ * hidden box comes out zero-sized.
+ */
+function buildDeck(findings) {
+  const deck = el("div", "insight deck");
+  markReveal(deck);
+
+  const bar = el("div", "deck-bar");
+  const counter = el("div", "insight-rank");
+  const dots = el("div", "deck-dots");
+  const nav = el("div", "deck-nav");
+  const prev = el("button", "deck-arrow", "\u2039");
+  const next = el("button", "deck-arrow", "\u203a");
+  prev.setAttribute("aria-label", "Previous finding");
+  next.setAttribute("aria-label", "Next finding");
+  nav.append(prev, next);
+  bar.append(counter, dots, nav);
+  deck.append(bar);
+
+  const stage = el("div", "deck-stage");
+  deck.append(stage);
+
+  const panes = findings.map((f, i) => {
+    const pane = el("div", "deck-pane");
+    pane.setAttribute("role", "tabpanel");
+    pane.setAttribute("aria-label", "Finding " + (i + 1) + " of " + findings.length);
+    pane.append(el("h3", null, f.headline));
+    pane.append(el("div", "insight-caption", captionFor(f)));
+    if (f.chart) pane.append(chartBlock(f.chart, captionFor(f)));
+    pane.append(proseBlock(f));
+    if (i > 0) pane.hidden = true;
+    stage.append(pane);
+    return pane;
+  });
+
+  findings.forEach((f, i) => {
+    const dot = el("button", "deck-dot");
+    dot.setAttribute("aria-label", "Finding " + (i + 1) + ": " + f.headline);
+    dot.title = f.headline;
+    dot.onclick = () => show(i);
+    dots.append(dot);
+  });
+
+  function show(i) {
+    const n = findings.length;
+    state.finding = ((i % n) + n) % n;                 // wraps in both directions
+    panes.forEach((p, j) => { p.hidden = j !== state.finding; });
+    [...dots.children].forEach((d, j) =>
+      d.setAttribute("aria-current", String(j === state.finding)));
+    counter.textContent = "Finding " + (state.finding + 1) + " of " + n +
+      "  \u00b7  strongest first";
+    // Only now does the pane have a size, so this is when the chart can be drawn.
+    drawCharts();
+  }
+
+  prev.onclick = () => show(state.finding - 1);
+  next.onclick = () => show(state.finding + 1);
+  deck.tabIndex = 0;
+  deck.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowLeft") { e.preventDefault(); show(state.finding - 1); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); show(state.finding + 1); }
+  });
+
+  show(Math.min(state.finding || 0, findings.length - 1));
+  return deck;
 }
 
 function captionFor(f) {
@@ -480,7 +548,10 @@ function renderTable(sessions) {
   });
 
   const body = el("tbody");
-  for (const s of sorted.slice(0, 200)) {
+  // 200 rows was two thirds of the page. Show a screenful and let the reader
+  // ask for more; sorting still applies to every session, not just these.
+  const shown = Math.min(sorted.length, state.tableRows);
+  for (const s of sorted.slice(0, shown)) {
     const tr = el("tr");
     for (const c of COLUMNS) {
       const raw = c.get ? c.get(s) : s[c.key];
@@ -493,8 +564,18 @@ function renderTable(sessions) {
   }
   tbl.appendChild(body);
   box.append(tbl);
-  if (sorted.length > 200) {
-    box.append(el("p", "confidence", "Showing the 200 most recent of " + sorted.length + " sessions."));
+  if (sorted.length > shown) {
+    const foot = el("div", "table-foot");
+    foot.append(el("span", "confidence", "Showing " + shown + " of " + sorted.length + " sessions."));
+    const more = el("button", "copy-btn", "Show " + Math.min(TABLE_STEP, sorted.length - shown) + " more");
+    more.onclick = () => { state.tableRows += TABLE_STEP; renderTable(sessions); };
+    foot.append(more);
+    if (shown > TABLE_STEP) {
+      const less = el("button", "copy-btn", "Back to " + TABLE_STEP);
+      less.onclick = () => { state.tableRows = TABLE_STEP; renderTable(sessions); };
+      foot.append(less);
+    }
+    box.append(foot);
   }
 }
 
@@ -590,7 +671,9 @@ export function drawCharts() {
   if (!state.plotly) return;
   const t = tokens();
   for (const c of charts) {
-    if (!c.host.isConnected || c.host.hidden) continue;
+    // offsetParent is null when any ancestor is hidden, which is how the deck
+    // hides the panes that are not on screen.
+    if (!c.host.isConnected || c.host.hidden || c.host.offsetParent === null) continue;
     const fig = figureFor(c.chart, t);
     if (!fig) continue;
     state.plotly.react(c.host, fig.data, fig.layout, CONFIG);

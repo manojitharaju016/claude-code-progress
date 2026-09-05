@@ -373,6 +373,38 @@ button { font-family: inherit; }
 .insights { display: flex; flex-direction: column; gap: 16px; }
 .insight { background: var(--surface); border-radius: var(--r-xl); padding: 24px; }
 .insight-rank { font-size: 12px; color: var(--text-3); margin-bottom: 6px; }
+
+/* one panel, one finding at a time */
+.deck { padding: 20px 24px 24px; }
+.deck:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.deck-bar {
+  display: flex; align-items: center; gap: 16px;
+  padding-bottom: 14px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--rule-soft);
+}
+.deck-bar .insight-rank { margin: 0; white-space: nowrap; }
+.deck-dots { display: flex; gap: 7px; margin-right: auto; flex-wrap: wrap; }
+.deck-dot {
+  appearance: none; border: none; padding: 0; cursor: pointer;
+  width: 7px; height: 7px; border-radius: 50%; background: var(--rule);
+  transition: background var(--d-fast) var(--ease-out), transform var(--d-fast) var(--ease-out);
+}
+.deck-dot:hover { background: var(--text-3); }
+.deck-dot[aria-current="true"] { background: var(--accent); transform: scale(1.35); }
+.deck-nav { display: flex; gap: 6px; flex: none; }
+.deck-arrow {
+  appearance: none; cursor: pointer; width: 34px; height: 34px;
+  border: 1px solid var(--rule); border-radius: 50%; background: transparent;
+  color: var(--text-2); font-size: 19px; line-height: 1;
+  display: flex; align-items: center; justify-content: center;
+  transition: color var(--d-fast) var(--ease-out), border-color var(--d-fast) var(--ease-out),
+              background var(--d-fast) var(--ease-out);
+}
+.deck-arrow:hover { color: var(--text); border-color: var(--text-3); background: var(--surface-2); }
+.deck-arrow:active { background: var(--accent-soft); }
+.deck-stage { padding-top: 16px; }
+.deck-pane[hidden] { display: none; }
+.deck-pane h3 { margin-bottom: 0; }
 .insight h3 { font-size: 24px; line-height: 1.25; max-width: 30ch; }
 .insight-caption { font-size: 14px; color: var(--text-2); margin-top: 6px; }
 .chart { width: 100%; min-height: 40px; margin: 18px 0 6px; }
@@ -435,6 +467,8 @@ details.how p { font-size: 14px; color: var(--text-2); max-width: 66ch; margin: 
 .stable tbody tr { cursor: pointer; }
 .stable tbody tr:hover { background: var(--surface-2); }
 .stable .num { text-align: right; }
+.table-foot { display: flex; align-items: center; gap: 16px; padding-top: 12px; flex-wrap: wrap; }
+.table-foot .confidence { margin: 0; }
 .detail td { background: var(--surface-2); }
 .detail-inner { padding: 8px 4px 16px; display: flex; flex-direction: column; gap: 14px; }
 
@@ -482,6 +516,10 @@ details.how p { font-size: 14px; color: var(--text-2); max-width: 66ch; margin: 
   .rail-tools { flex-direction: row; }
   .rail-foot { display: none; }
   .insight { padding: 18px; border-radius: var(--r-lg); }
+  .deck { padding: 16px 18px 20px; }
+  .deck-bar { gap: 10px; flex-wrap: wrap; }
+  .deck-bar .insight-rank { width: 100%; }
+  .deck-arrow { width: 40px; height: 40px; }
   .insight h3 { font-size: 20px; }
   .report { font-size: 18px; }
   .filters { position: static; }
